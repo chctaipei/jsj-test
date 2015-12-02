@@ -1,0 +1,28 @@
+{
+    "query": {
+        "properties": {
+            "name": {
+                "type": "string",
+                "null_value": "na",
+                "index": "analyzed",
+                "analyzer": "cjk"
+            },
+            "matches": {
+                "type": "integer"
+            },
+            "count": {
+                "type": "integer"
+            },
+            "phoentic": {
+                "type": "string",
+                "null_value": "na",
+                "index": "analyzed",
+                "analyzer": "cjk"
+            },
+            "updateTime":{
+                "type":"date",
+                "format":"yyyy-MM-dd HH:mm:ss"
+            }
+        }
+    }
+}

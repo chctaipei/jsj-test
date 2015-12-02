@@ -1,0 +1,11 @@
+{
+    "phrase": {
+        "properties": {
+            "words": {
+                "type": "string",
+                "null_value": "na",
+                "index":"not_analyzed"
+            }
+        }
+    }
+}

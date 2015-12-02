@@ -1,0 +1,12 @@
+{
+    "from": 0,
+    "size": 5,
+    "query": {
+        "match" : { 
+            "phonetic" : {
+                "query":":QUERY:",
+                "fuzziness": 3 
+            }
+        }
+    }
+}

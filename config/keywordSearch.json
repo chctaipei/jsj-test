@@ -1,0 +1,78 @@
+{
+    "from": 0,
+    "size": 10,
+    "min_score": 0.8,
+ 
+    "query": {
+        "function_score": {
+            "query": {
+                "multi_match": {
+                    "query": ":QUERY:",
+                    "type":  "cross_fields",
+                    "fields": [
+                        "categoryPath^3",
+                        "name^4",
+                        "brandDetail^4",
+                        "tags",
+                        "modelNo"
+                    ],
+                    "operator": "and",
+                    "minimum_should_match": "20%"
+                }
+            },
+            "field_value_factor": {
+                "field": "watchTimes",
+                "modifier": "log1p",
+                "factor": "2"
+            },
+            "boost_mode": "multiply",
+            "max_boost": 3
+        }
+    },
+    "aggs": {
+        "brand": {
+            "terms": {
+                "field": "brandDetail.raw"
+            }
+        },
+        "related": {
+            "significant_terms": {
+                "field": "tags.raw"
+            }
+        },
+        "prices" : {
+            "histogram" : {
+                "field" : "salePrice",
+                "interval" : 1000,
+                "min_doc_count" : 1,
+                "keyed" : true
+            }
+        },
+        "level0": {
+            "terms": {
+                "field": "productCategoryLv0"
+            },
+            "aggs": {
+                "level1": {
+                    "terms": {
+                        "field": "productCategoryLv1"
+                    },
+                    "aggs": {
+                        "level2": {
+                            "terms": {
+                                "field": "productCategoryLv2"
+                            },
+                            "aggs": {
+                                "level3": {
+                                    "terms": {
+                                        "field": "productCategoryLv3"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
