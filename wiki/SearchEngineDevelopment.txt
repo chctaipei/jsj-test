@@ -1,1 +1,394 @@
-/var/www/html/wiki/data/Main/SearchEngineDevelopment.txt
+%META:TOPICINFO{author="HsienChien" comment="" date="1448856503" format="1.1" reprev="2" version="3"}%
+%META:TOPICPARENT{name="EcommerceHome"}%
+---+!! EC Search 程式開發文件
+
+電商搜尋引擎程式開發文件
+
+%TOC%
+---
+---++ Config
+---+++ %ORANGE%app/config/file/development_config.ini%ENDCOLOR%
+<verbatim>
+[elasticSearch]
+host  = search.beta.hq.hiiir
+port  = 9200
+; index = dev_friday
+index = dev_ec
+typeProduct = product
+typeQuery = query
+typePhrase = phrase
+enabled = 1
+newFeature = true
+
+[elasticSearchDB]
+host = mall.dev.hq.hiiir
+username = mall
+password = "BAR6ouptjaugGBwzLI0yv4Fho8w="
+name = mall-search
+timeout = 10
+persistent = false
+port = 3306</verbatim>
+
+---
+---++ Database Table
+---+++ %ORANGE%QueryLog%ENDCOLOR%
+
+紀錄關鍵字, 作為熱門關鍵字及建議關鍵字使用
+<verbatim>
+       Table: QueryLog
+Create Table: CREATE TABLE `QueryLog` (
+  `id` int(11) NOT NULL DEFAULT '0',
+  `query` varchar(128) DEFAULT NULL,
+  `count` int(11) unsigned NOT NULL DEFAULT '0',
+  `matches` int(11) unsigned NOT NULL DEFAULT '0',
+  `create_time` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
+  `update_time` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `query_UNIQUE` (`query`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8</verbatim>
+
+---
+---++ Class
+---+++ %ORANGE%Hiiir\ElasticSearch%ENDCOLOR%
+
+這個是 base class 直接與!ElasticSearch 串接的介面, 提供搜尋及文字過濾, 同音及停用字等前置處理工具, 其他 class/function 應串接 business\SearchService class
+
+---++++ public function %ORANGE%doSearch%ENDCOLOR%(array %BLUE%$param%ENDCOLOR%, string %BLUE%$type%ENDCOLOR%)
+
+使用 $type schema 將 $param 做處理後呼叫 !ElasticSearch API 並回傳 search result
+| *輸入* ||||
+| *參數* | *屬性* | *說明* | *範例* |
+| $param | array | $param 為 !SearchService Class 處理過的 array | 略 |
+| $type | string | ("keywordSearch","fieldSearch","fuzzySearch") search schema | "keywordSearch" |
+| *輸出* ||||
+| *屬性* || *說明* | *範例* |
+| array || search result | 略 |
+---
+---++++ public function %ORANGE%remove%ENDCOLOR%(integer %BLUE%$productId%ENDCOLOR%)
+
+將產品從搜尋引擎資料庫中刪除
+| *輸入* ||||
+| *參數* | *屬性* | *說明* | *範例* |
+| $productId | integer | 產品編號 | 1234 |
+| *輸出* ||||
+| *屬性* || *說明* | *範例* |
+| array || search response | 略 |
+---
+---++++ public function %ORANGE%index%ENDCOLOR%(array %BLUE%$productFeed%ENDCOLOR%)
+
+更新(新增/刪除)產品 (搜尋)
+| *輸入* ||||
+| *參數* | *屬性* | *說明* | *範例* |
+| $productFeed | array | 產品內容 | |
+| *輸出* ||||
+| *屬性* || *說明* | *範例* |
+| array || index response | 略 |
+---
+---++++ public %BLUE%static%ENDCOLOR% function %ORANGE%getPhonetic%ENDCOLOR%(string %BLUE%$text%ENDCOLOR%)
+
+將文字 $text 經由同音字表轉換為對應的同音文字
+| *輸入* ||||
+| *參數* | *屬性* | *說明* | *範例* |
+| $text | string | 未處理前的文字 | "電視機" |
+| *輸出* ||||
+| *屬性* || *說明* | *範例* |
+| string || 同音轉換後的文字 | "電識稽" |
+---
+---++++ public %BLUE%static%ENDCOLOR% function %ORANGE%getStopword%ENDCOLOR%(string %BLUE%$char%ENDCOLOR% = ' ')
+
+取得停用字元表
+| *輸入* ||||
+| *參數* | *屬性* | *說明* | *範例* |
+| char | string | 將停用字元要替換成 | 預設 " " |
+| *輸出* ||||
+| *屬性* || *說明* | *範例* |
+| array || 停用字元表 | 略 |
+---
+---++++ public %BLUE%static%ENDCOLOR% function %ORANGE%replaceStopword%ENDCOLOR%(string %BLUE%$text%ENDCOLOR%, string %BLUE%$char%ENDCOLOR% = ' ')
+
+將 $text 內的停用字元取代為 $char
+| *輸入* ||||
+| *參數* | *屬性* | *說明* | *範例* |
+| $text | string | 未處理前的文字 | "電,視,機" |
+| $char | string | 將停用字元要替換成 | 預設 " " |
+| *輸出* ||||
+| *屬性* || *說明* | *範例* |
+| string || 取代後的文字 | "電 視 機" |
+---
+---++++ public %BLUE%static%ENDCOLOR% function %ORANGE%filterQuery%ENDCOLOR%(string %BLUE%$query%ENDCOLOR%, boolean %BLUE%$checkLogic%ENDCOLOR% = false)
+
+過濾 $query 文字, 過濾方式有:
+   * 轉換成小寫
+   * 去除 tag
+   * 去除 % 編碼 例如: %E9%9B%84%E8%9C%82%E7%B2%BE%E8%8F%AF%E6%B6%B2
+   * 去除 &# 編碼 例如: 有線無線兩用
+   * 去除符號字元並合併空白
+
+| *輸入* ||||
+| *參數* | *屬性* | *說明* | *範例* |
+| $query | string | 未處理前的文字 | "電視機{&lt;sss&gt;cool}" |
+| $checkLogic | boolean | 若有含邏輯字元時, 則回空字串 | false |
+| *輸出* ||||
+| *屬性* || *說明* | *範例* |
+| string || 取代後的文字 | "電視機 cool" |
+
+---
+---+++ %ORANGE%business\SearchService%ENDCOLOR%
+
+提供給 controller/task 串接
+
+---++++ public function %ORANGE%keywordSearch%ENDCOLOR%(%BLUE%參閱以下表格%ENDCOLOR%)
+
+用關鍵字查詢找到符合的商品, 並依條件做過濾及排序
+
+| *輸入* ||||
+| *參數* | *屬性* | *說明* | *範例* |
+| $keyword | string | 關鍵字 | "電視機" |
+| $filter | array | 過濾條件, 例如價格,配送方式等 | |
+| $page | integer | 顯示第幾頁 | 1 |
+| $limit | integer | 每頁數量 | 32 |
+| $order | array | 排序, 例如價格,瀏覽數 | |
+| $category | array | 過濾分類 | ['/'] |
+| $count | boolean | 是否 log | FALSE |
+| $aggs | boolean | 是否將結果做分類聚合 | TRUE |
+| $postfilter | array | 後置過濾條件 |
+| *輸出* ||||
+| *屬性* || *說明* | *範例* |
+| array || search result | 略 |
+
+---
+---++++ public function %ORANGE%fieldSearch%ENDCOLOR%(%BLUE%參閱以下表格%ENDCOLOR%)
+
+將商品並依條件做過濾及排序 (無關鍵字)
+| *輸入* ||||
+| *參數* | *屬性* | *說明* | *範例* |
+| $filter | array | 過濾條件, 例如價格,配送方式等 | |
+| $page | integer | 顯示第幾頁 | 1 |
+| $limit | integer | 每頁數量 | 32 |
+| $order | array | 排序, 例如價格,瀏覽數 | |
+| $category | array | 過濾分類 | ['/'] |
+| $refresh | boolean | 是否做 cache | TRUE |
+| *輸出* ||||
+| *屬性* || *說明* | *範例* |
+| array || search result | 略 |
+
+---
+---++++ public function %ORANGE%fuzzySearch%ENDCOLOR%(string %BLUE%keyword%ENDCOLOR%)
+
+模糊搜尋, 當搜尋無結果時, 提供關鍵字建議
+| *輸入* ||||
+| *參數* | *屬性* | *說明* | *範例* |
+| $keyword | string | 關鍵字 | 電視雞 |
+| *輸出* ||||
+| *屬性* || *說明* | *範例* |
+| array || search result | 略 |
+
+---
+---++++ public function %ORANGE%categorySearch%ENDCOLOR%(%BLUE%參閱以下表格%ENDCOLOR%)
+
+將商品並依分類做過濾及排序 (無關鍵字)
+| *輸入* ||||
+| *參數* | *屬性* | *說明* | *範例* |
+| $page | integer | 顯示第幾頁 | 1 |
+| $limit | integer | 每頁數量 | 32 |
+| $order | array | 排序, 例如價格,瀏覽數 | |
+| $category | array | 過濾分類 | ['/'] |
+| *輸出* ||||
+| *屬性* || *說明* | *範例* |
+| array || search result | 略 |
+
+---
+---++++ public function %ORANGE%listHotKeyword%ENDCOLOR%()
+
+取得熱門關鍵字
+| *輸入* ||||
+| *參數* | *屬性* | *說明* | *範例* |
+|  無 ||||
+| *輸出* ||||
+| *屬性* || *說明* | *範例* |
+| array || 熱門關鍵字 | 略 |
+
+---
+---++++ public function %ORANGE%remark%ENDCOLOR%(integer %BLUE%$productId%ENDCOLOR%)
+
+將產品從搜尋引擎資料庫中刪除
+| *輸入* ||||
+| *參數* | *屬性* | *說明* | *範例* |
+| $productId | integer | 產品編號 | 1234 |
+| *輸出* ||||
+| *屬性* || *說明* | *範例* |
+| array || search response | 略 |
+
+---
+---++++ public function %ORANGE%term%ENDCOLOR%(string %BLUE%$term%ENDCOLOR%)
+
+關鍵字 auto-complete
+| *輸入* ||||
+| *參數* | *屬性* | *說明* | *範例* |
+| $term | string | 關鍵字 | "ip" |
+| *輸出* ||||
+| *屬性* || *說明* | *範例* |
+| array || 關鍵字 | ["iphone" =&gt; 500, "iphone6" =&gt; 200] |
+
+---
+---++++ public function %ORANGE%index%ENDCOLOR%(array %BLUE%$productFeed%ENDCOLOR%)
+
+更新(新增/刪除)產品 (搜尋)
+| *輸入* ||||
+| *參數* | *屬性* | *說明* | *範例* |
+| $productFeed | array | 產品內容 | |
+| *輸出* ||||
+| *屬性* || *說明* | *範例* |
+| array || index response | 略 |
+
+---
+---++++ public function %ORANGE%update%ENDCOLOR%(integer %BLUE%$productId%ENDCOLOR%)
+
+更新(新增/刪除)產品 (搜尋)
+| *輸入* ||||
+| *參數* | *屬性* | *說明* | *範例* |
+| $productId | integer | 產品編號 | 1234 |
+| *輸出* ||||
+| *屬性* || *說明* | *範例* |
+| array || index response | 略 |
+
+---
+---+++ %ORANGE%Hiiir\QueryLog%ENDCOLOR%
+
+紀錄關鍵字, 作為熱門關鍵字及建議關鍵字使用
+
+---
+---+++ %ORANGE%Hiiir\Phrase%ENDCOLOR%
+
+同義詞管理
+
+---+++ %ORANGE%business\product\index\ProductIndexService%ENDCOLOR%
+
+產出商品搜尋需要的資料格式
+
+提供給 controller/task 串接
+
+---
+---++ Tasks
+---+++ %ORANGE%FeedproductTask%ENDCOLOR%
+
+更新全部商品資料存入 Elastic Search Server
+---++++ 用法
+<verbatim>
+cli.php Feedproduct
+
+
+</verbatim>
+---+++ %ORANGE%QuerylogTask%ENDCOLOR%
+
+輸入熱門關鍵字, 建立資料表
+---++++ 用法
+<verbatim>
+cli.php Querylog
+
+Usage:
+    feed FILENAME               輸入 query log 檔案
+    insert QUERY MATCHES        輸入單筆 query & matches
+    init                        初始化 mysql table
+    suggest QUERY               測試 autocomplete, ex: a
+    list                        列出熱門關鍵字
+    reset                       重設 counter
+    sync                        更新搜尋引擎(query)資料庫
+
+</verbatim>
+
+---+++ %ORANGE%SmartsearchTask%ENDCOLOR%
+
+建立每日智能導航及品牌快搜資料表
+
+---++++ 用法
+<verbatim>
+cli.php Smartsearch dailysmartsearchcondition
+
+</verbatim>
+
+---+++ %ORANGE%PhraseTask%ENDCOLOR%
+
+管理同義詞資料表
+
+---++++ 用法
+<verbatim>
+cli.php Phrase
+
+Usage:
+    feed FILENAME               由檔案輸入多筆同義詞
+    insert PHRASE               輸入單筆同義詞, ex: "aaa,bbb,ccc"
+    update ID PHRASE            將 id 為 ID 的同義詞改成新的同義詞 (若 ID 不存在則新增)
+    delete ID                   將 id 為 ID 的同義詞刪除
+    find KEYWORD                找出 KEYWORD 的同義詞
+    list                        列出所有同義詞
+
+</verbatim>
+
+---
+---++ Jobs
+---+++ %ORANGE%UpdateProductInSearchEngine%ENDCOLOR%
+
+當資料異動時, 透過這個 job 同步(即時)更新到 Search Engine
+
+---
+---++ 相關檔案
+---+++ config
+   * app/config/elasticSearch/fieldSearch.json
+   * app/config/elasticSearch/fuzzySearch.json
+   * app/config/elasticSearch/keywordSearch.json
+   * app/config/elasticSearch/phoneticData.json
+   * app/config/elasticSearch/productIndex.json
+   * app/config/elasticSearch/productMapping.json
+   * app/config/elasticSearch/queryIndex.json
+   * app/config/elasticSearch/stopwordData.json
+   * app/config/elasticSearch/phraseIndex.json
+   * app/config/elasticSearch/phraseSearch.json
+---+++ library
+   * app/model/business/product/index/ProductIndexService.php
+   * app/model/business/SmartSearchConditionService.php
+   * app/model/business/SearchService.php
+   * app/library/Hiiir/Phrase.php
+   * app/library/Hiiir/QueryLog.php
+   * app/library/Hiiir/ElasticSearch.php
+---+++ view
+   * app/view/mobile/index/search.volt
+---+++ controller
+   * app/controller/mall/SearchController.php
+---+++ jobs
+   * app/jobs/UpdateProductInSearchEngine.php
+---+++ tasks
+   * app/task/FeedproductTask.php
+   * app/task/SmartsearchTask.php
+   * app/task/PhraseTask.php
+   * app/task/QuerylogTask.php
+---+++ file hierarchy
+   * app/library/Hiiir/ElasticSearch.php
+      * app/library/Hiiir/Phrase.php
+         * app/task/PhraseTask.php
+      * app/library/Hiiir/QueryLog.php
+         * app/task/QuerylogTask.php
+      * app/model/business/SearchService.php
+         * app/model/business/product/index/ProductIndexService.php
+         * app/model/business/SmartSearchService.php
+            * app/controller/mall/ShopindexController.php
+         * app/model/business/TopSortSearchService.php
+            * app/model/db/OrderReturn.php
+            * app/model/business/track/GoogleAnalyticsService.php
+            * app/model/business/internal/fresh/SaleService.php
+            * app/model/business/cart/CartService.php
+            * app/model/business/product/review/MallService.php
+            * app/controller/mall/SpecialcenterController.php
+            * app/controller/mall/CartController.php
+         * app/model/business/app/SaleService.php
+         * app/model/business/SaleOrderService.php
+         * app/controller/mall/SearchController.php
+         * app/task/BuildproductindexTask.php
+         * app/controller/mall/MidindexController.php
+         * app/controller/mall/SalecenterController.php
+         * app/controller/mall/ErrorController.php
+   * app/task/FeedproductTask.php
+   * app/task/SmartsearchTask.php
+   * app/task/CheckproductfeedTask.php (這隻應該不用了, 未重構)
+   * app/task/BuildProductIndexTask.php (這隻應該不用了, 改用 !FeedproductTask.php)
+   * app/jobs/UpdateProductInSearchEngine.php

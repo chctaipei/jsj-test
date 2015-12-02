@@ -1,1 +1,243 @@
-/var/www/html/wiki/data/Main/SearchEngineDesignDocument.txt
+%META:TOPICINFO{author="HsienChien" comment="" date="1448942288" format="1.1" reprev="14" version="14"}%
+%META:TOPICPARENT{name="EcommerceHome"}%
+---+!! EC Search 設計文件1 - 功能需求, 功能介紹, 產品搜尋(關鍵字)
+
+修改紀錄
+| *更新時間* | *內容* |
+| 2015-11-27 | 品牌,價格,規格 aggregation |
+| 2015-11-16 | 同義詞 |
+| 2015-11-09 | 修正 schema |
+| 2015-11-05 | 增加布林邏輯功能 |
+| 2015-11-01 | 第一版 |
+
+---
+
+%TOC%
+---
+---++ 功能(需求)項目
+   * 商品搜尋 & 智能導航
+      * 關鍵字
+         * 自動完成
+         * 相關關鍵字
+         * 熱門關鍵字
+         * 關鍵字更正建議(fuzzy) %N%
+         * 同音 %N%
+         * 同義
+         * 簡繁
+         * 布林邏輯 %N%
+      * 排序
+         * 預設 (優先符合+欄位比重)
+         * 購買次數排序 (saleTimes)
+         * 價格排序 (salePrice)
+         * 更新時間 (updateTime)
+         * 觀看次數 (watchTimes)
+         * 上架時間 (startTime)
+      * 過濾條件
+         * 分類 (category)
+         * 價格範圍 (salePrice)
+         * 配送方式 (shippingWays)
+         * 品牌 (brandDetail)
+         * 標籤 (productTagName) - 快搜
+      * 使用者行為追蹤 ( [[#NoticeOne][註1]])
+         * 看了此分類的人也看了
+         * 看了此商品的人也看了
+   * 商品索引
+      * 商品索引
+      * 關鍵字同音索引 %N%
+   * 後台管理功能 ( [[#NoticeTwo][註2]])
+      * 帳號管理
+      * 伺服器設定
+      * 伺服器狀態
+      * 詞庫維護
+      * 檢索統計報表
+      * 檢索權重調整 ( [[#NoticeThree][註3]])
+
+#NoticeOne
+註1: 使用者行為追蹤的需求與搜尋引擎無直接關係, 需要從 EC 做 log 或透過 GA 統計, 而分析這個數據的結果可以用來輔助讓搜尋結果得到最佳化
+
+#NoticeTwo
+註2: !ElasticSearch 後台管理工具, 參考: elastichq ( [[http://www.elastichq.org/app/index.php?url=http://search.beta.hq.hiiir:9200#cluster][search.beta]])
+
+#NoticeThree
+註3: !ElasticSearch 的權重是搜尋當下的條件決定
+
+---
+---++ 功能介紹
+
+---++++ 布林邏輯 %N%
+
+使用者可以使用布林邏輯於搜尋內容, 如: %BLUE%(手機|平板)+(sony|apple)-(保護殼|傳輸線)%ENDCOLOR%, 目前支援:
+| *符號* | *說明* |
+| + | signifies AND operation |
+| %VBAR% | signifies OR operation |
+| - | negates a single token |
+| " | wraps a number of tokens to signify a phrase for searching |
+| ( and ) | signify precedence |
+參考: [[https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-simple-query-string-query.html][simple_query_string_syntax]]
+
+%RED%目前測試 simple query 有一個問題, 當 query 為空白時會變成全部搜尋, 因此這功能目前無法使用%ENDCOLOR%
+
+PS: 布林邏輯使用比例只有五萬分之一, 增加這個功能不預期會有多大效益
+---
+---++++ 相關關鍵字
+
+相關關鍵字做法有:
+   1 與*關鍵字語意*相關, 例如: 硬碟 = HD = Hard Disk
+   1 與*商品內容*相關, 例如: iphone =&gt; (iphone 6, iphone 6s, iphone 保護套)
+   1 與*使用者行為*相關, 例如: 電視 =&gt; sony =&gt; 冰箱 =&gt; ...
+相關關鍵字可用來協助使用者更進一步的搜尋並縮小搜尋範圍, 根據統計 76.9% 的搜尋為單詞, 而 23.1% 為雙詞以上的組合 (參考 [[http://wiki.mall.dev.hq.hiiir/pub/Main/SearchEngineCompare/output.txt][附件1]]), 使用者有很高的比例使用商品型別/標籤(model/tag)做進一步過濾, 因此以內容相關的關鍵字最符合使用者做進一步過濾搜尋
+---
+---++++ auto complete
+
+auto complete 需要維護一個詞庫, 詞庫的來源可以有
+   1 商品目錄 (category)
+   1 商品名稱 (name)
+   1 商品型別/標籤 (tag)
+   1 熱門搜尋 (hot queries)
+   1 人工輸入
+在分析商品目錄, 商品 tag 後發現, 需要花許多時間將不適合的字元刪除, 另外中文需要做斷字處理, 耗時費力, 因此改以熱門前 6000 個關鍵字為來源當作詞庫, 佔整體比例 76.8%, 如果取 10000 則比例為 81.7%, 數量大小會影響到效能跟品質, 而增加 4000 個關鍵字只能增加 5% 的準確性, 而且太大容易造成空間與時間浪費, 因此 6000 是很好的平衡點, 未來可以根據網站的使用狀況, 商品數量再做調整!
+---
+---++++ 同音
+
+詞庫的來源為熱門關鍵字, 同音需要前置處理, 將同音字對應到一個符號或文字, 檢索時將關鍵字轉換為符號後再做查詢比對, 同音需要額外建立 index 或額外欄位, Elastic Search 目前沒有同音的 plugin, 需要我們額外建置
+---
+---++++ 簡繁互轉
+
+詞庫的來源為熱門關鍵字, 簡繁互轉需要前置處理, 將中文字統一對應到簡體字或繁體字, 作法與同音類似, 另外可以維護簡繁同義詞庫以達到更精確的文字轉換, 我們 EC 網站以繁體字為主, 可以不須額外建立 index, Elastic Search 的簡繁互轉 plugin 是大陸人寫, 轉繁體的準確度不佳, 因此我們改用 [[http://www.openfoundry.org/of/projects/333][新同文堂]]提供的詞庫
+---
+---++++ 模糊搜尋 %N%
+
+!ElasticSearch 有提供模糊搜尋(fuzzy), 透過設定 fuzziness 參數決定文字錯誤數量或者 auto. 參考: [[https://www.elastic.co/guide/en/elasticsearch/reference/1.4/common-options.html#fuzziness][ElasticSearch: Fuzziness 章節]], 這功能不需前置處理也不需建立額外的 index
+---
+---++++ 同義
+
+!ElasticSearch 有提供同義分詞. 參考: [[https://www.elastic.co/guide/en/elasticsearch/reference/1.4/analysis-synonym-tokenfilter.html][Elastic Search: Synonym Token Filter 章節]], 指定檔案的方法只能在 !ElasticSearch Server 上執行, 除了這個做法以外, 也可以用前置處理的方式轉換同義關鍵字之後再做搜尋
+
+---
+---++++ 搜尋欄位及權重
+| *欄位* | *倍數* | *說明* | *附註* |
+| categoryPath | 3 | 分類 | |
+| name | 4 | 商品名稱 | |
+| tags | 1 | 標籤 | |
+| keyword | 1 | 關鍵字 | |
+| modelNo | 1 | 商品型別 | |
+
+| *field_value_factor* | *factor* | *modifier* | *max_boost* | *說明* | *附註* |
+| watchTimes | 2 | log1p | 3 | 觀看次數 | 增加倍數上限不超過三倍 |
+*new_score = old_score * log(1 + 2 * watchTimes)*
+
+參考: [[https://www.elastic.co/guide/en/elasticsearch/guide/current/boosting-by-popularity.html][boosting by popularity]]
+
+---
+---++ !ElasticSearch Schema
+---+++ Mapping Schema
+
+主要對應表, 一個 index 兩個 type (product, log)
+%INCLUDE{"ProductMappingSchema"}%
+
+---
+---+++ Keyword Search Schema
+
+用關鍵字搜尋產品的 schema
+%INCLUDE{"KeywordSearchSchema"}%
+
+---
+---++ 同義詞
+   * 預設關閉或開啟
+      * 開啟同義詞對效能會有影響, 效能會降低 50% 左右
+      * 開啟同義詞會產生出現過多不需要的結果, 失去搜尋的精確度
+      * 因此只有在搜尋無結果時才做啟用
+
+---+++ 詞庫分析
+   * 現有資料有 716 筆
+   * 有效啟用數 180 筆 - 當搜尋失敗而關鍵字符合同義詞
+   * 二次搜尋查得到的有 43 筆
+---++++ 43 筆有效關鍵字
+<verbatim>
+        2 (AESOP | AESOP | 伊索)
+        4 (AJ HIPPO | AJ HIPPO | AJHIPPO | 小河馬)
+        4 (AVSAT | AVSAT | 艾維斯特)
+        27 (BURT'S BEES | BURT'S BEES | 小蜜蜂 | 蜜蜂爺爺)
+        57 (BUTTERLION | BUTTERLION | 奶油獅)
+        76 (COOLMASTER | COOLMASTER | 酷媽 | 酷冷至尊)
+        2 (DR.BATTERY | DR.BATTERY | 電池王)
+        12 (ENERGIZER | ENERGIZER | 勁量)
+        5 (ERGOTECH | ERGOTECH | 人因科技)
+        16 (FUJIXEROR | FUJIXEROR | 全錄 | 富士全錄)
+        51 (GREAT LIVING | GREAT LIVING | 格蕾)
+        9 (GUNDAM | GUNDAM | GUNDAM | 高達 | 機動戰士 高達 | 機動戰士 鋼彈 | GUNDAM)
+        22 (KENK | KENK | 嘉儀)
+        1 (KRYOLAN | KRYOLAN | 歌劇魅影)
+        98 (LOCKLOCK | LOCKLOCK | 樂扣樂扣)
+        27 (LUXURY TECH | LUXURY TECH | 御立精品)
+        1 (MAURICE LACROIX | MAURICE LACROIX | 艾美)
+        59 (MAX STAR | MAX STAR | 太星 | 太星電工)
+        15 (MINIBODY | MINIBODY | 纖活)
+        1 (OMAKE世界雜貨 | OMAKE世界雜貨 | OMAKE)
+        74 (ORIENT | ORIENT | 東方)
+        1 (ORIGINS | ORIGINS | 品木宣言)
+        62 (RADO | RADO | 雷達)
+        1 (ROVEN DINO | ROVEN DINO | 羅梵迪諾)
+        34 (SUMMER'S EVE | SUMMER'S EVE | 舒摩兒)
+        120 (SUNPENTOWN | SUNPENTOWN | 尚朋堂 | SPT)
+        173 (SUPAFINE | SUPAFINE | 勳風)
+        13 (SUPERFLOWER | SUPERFLOWER | 振華 | 花蝴蝶)
+        4 (TAG HEUER | TAG HEUER | 豪雅)
+        58 (TITONI | TITONI | 梅花)
+        254 (WEBCAM | WEBCAM | 網路攝影機 | 視訊)
+        3 (WELLYPOWER | WELLYPOWER | 威力盟)
+        16 (YAMASAK | YAMASAK | 山崎)
+        3 (后 | 后 | WHOO)
+        1 (帝富特 | 帝富特 | DIFF)
+        2 (拋棄式內褲 | 拋棄式內褲 | 免洗內褲)
+        66 (星譜生物科技 | 星譜生物科技 | BIOLINE)
+        1 (木領帶 | 木領帶 | 木質領帶)
+        2 (與熊設計 | 與熊設計 | IDEOSO)
+        19 (資料夾 | 資料夾 | 檔案夾 | 文書夾 | 文件夾)
+        11 (過膝長靴 | 過膝長靴 | 過膝靴)
+        13 (馬汀鞋 | 馬汀鞋 | 馬丁鞋 | 馬丁靴 | 馬汀靴 | 馬汀大夫鞋)
+        136 (鹽燈能量館 | 鹽燈能量館 | 瑰麗寶)</verbatim>
+
+---++++ 搜尋紀錄分析結果
+   * 從 2~8 月共一百多萬筆的搜尋紀錄分析, 只有 44 筆符合, 且只用到其中 14 筆關鍵字
+<verbatim>
++-----------------+----------+
+| keyword         | count(*) |
++-----------------+----------+
+| aesop           |        5 |
+| Ergotech        |        2 |
+| gundam          |        1 |
+| kryolan         |        1 |
+| LockLock        |        8 |
+| MInibody        |        1 |
+| ORIENT          |       10 |
+| rado            |        3 |
+| Roven Dino      |        1 |
+| webcam          |        2 |
+| YAMASAK         |        2 |
+| 后              |        5 |
+| 拋棄式內褲      |        2 |
+| 馬汀鞋          |        1 |
++-----------------+----------+</verbatim>
+
+---++++ 結論
+
+同義詞只有十萬分之四的成效, 平均一個月只有 2 筆查詢會用到同義詞
+
+---++ 品牌/價格/規格 aggregation %N%
+---+++ 目的
+
+協助使用者對於搜尋內容快速地做進一步過濾
+---+++ 參考:
+
+---++++ !PCHOME 購物
+
+     <img alt='pchome.png' height='166' src='%ATTACHURLPATH%/pchome.png' width='1006' />
+
+---++++ !Yahoo! 購物
+
+     <img alt='yahoo.png' height='477' src='%ATTACHURLPATH%/yahoo.png' width='970' />
+
+%META:FILEATTACHMENT{name="pchome.png" attachment="pchome.png" attr="" comment="" date="1448610903" path="pchome.png" size="20634" user="HsienChien" version="1"}%
+%META:FILEATTACHMENT{name="yahoo.png" attachment="yahoo.png" attr="" comment="" date="1448611299" path="yahoo.png" size="92888" user="HsienChien" version="1"}%
+%META:TOPICMOVED{by="HsienChien" date="1446513015" from="Main.SearchEngine" to="Main.SearchEngineDesignDocument"}%
