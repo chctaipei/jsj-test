@@ -1,0 +1,212 @@
+{
+    "mappings": {
+        "product": {
+            "properties": {
+            "productId": {
+                "type": "integer",
+                "index": "no"
+            },
+            "saleNo": {
+                "type": "string",
+                "index": "no"
+            },
+            "productCategoryLv0": {
+                "type": "string",
+                "index": "not_analyzed"
+            },
+            "productCategoryLv1": {
+                "type": "string",
+                "index": "not_analyzed"
+            },
+            "productCategoryLv2": {
+                "type": "string",
+                "index": "not_analyzed"
+            },
+            "productCategoryLv3": {
+                "type": "string",
+                "index": "not_analyzed"
+            },
+            "categoryPath": {
+                "type": "string",
+                "index": "no"
+            },
+            "brandName": {
+                "type": "string",
+                "null_value": "na",
+                "index": "analyzed",
+                "analyzer": "cjk",
+                "fields" : {
+                    "raw" : {"type" : "string", "index" : "not_analyzed"}
+                }
+            },
+            "brandDetail": {
+                "type": "string",
+                "index": "no"
+            },
+            "TagName": {
+                "type": "string",
+                "index": "no"
+            },
+            "searchName": {
+                "type": "string",
+                "null_value": "na",
+                "index": "analyzed",
+                "analyzer": "cjk"
+            },
+            "name": {
+                "type": "string",
+                "null_value": "na",
+                "index": "analyzed",
+                "analyzer": "cjk"
+            },
+            "specialName": {
+                "type": "string",
+                "index": "no"
+            },
+            "saleType": {
+                "type": "integer",
+                "index": "no"
+            },
+            "status": {
+                "type": "integer",
+                "index": "no"
+            },
+            "onShelf": {
+                "type": "integer",
+                "index": "no"
+            },
+            "isDisplay": {
+                "type": "integer",
+                "index": "no"
+            },
+            "imagePath": {
+                "type": "string",
+                "index": "no"
+            },
+            "offerType": {
+                "type": "string",
+                "index": "no"
+            },
+            "originalImage": {
+                "type": "string",
+                "index": "no"
+            },
+            "shippingWays": {
+                "type": "nested",
+                "properties": {
+                    "type": {
+                        "type": "integer",
+                        "index": "not_analyzed"
+                    }
+                }
+            },
+            "tags": {
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "null_value": "na",
+                        "index": "analyzed",
+                        "analyzer": "cjk",
+                        "fields" : {
+                            "raw" : {"type" : "string", "index" : "not_analyzed"}
+                        }
+                    }
+                }
+            },
+             "searchTags": {
+                "type": "string",
+                "index": "no"
+            },
+            "modelNo": {
+                "type": "string",
+                "index": "no"
+            },
+            "ageRange": {
+                "type": "integer",
+                "index": "no"
+            },
+            "feature": {
+                "type": "string",
+                "index": "no"
+            },
+            "specification": {
+                "type": "string",
+                "index": "no"
+            },
+            "description": {
+                "type": "string",
+                "index": "no"
+            },
+            "productTitle": {
+                "type": "string",
+                "index": "no"
+            },
+            "madeIn": {
+                "type": "string",
+                "index": "no"
+            },
+            "material": {
+                "type": "string",
+                "index": "no"
+            },
+            "element": {
+                "type": "string",
+                "index": "no"
+            },
+            "otherNotice": {
+                "type": "string",
+                "index": "no"
+            },
+            "keyword": {
+                "type": "string",
+                "null_value": "na",
+                "index": "analyzed",
+                "analyzer": "cjk"
+            },
+            "proposePrice": {
+                "type": "integer",
+                "index": "no"
+            },
+            "salePrice": {
+                "type": "integer"
+            },
+            "comboProductName": {
+                "type": "string",
+                "index": "no"
+            },
+            "sort": {
+                "type": "integer",
+                "index": "no"
+            },
+            "dailySaleTimes": {
+                "type": "integer"
+            },
+            "dailyWatchTimes": {
+                "type": "integer"
+            },
+            "watchTimes": {
+                "type": "integer"
+            },
+            "startTime": {
+                "type": "date",
+                "format": "yyyy-MM-dd HH:mm:ss",
+                "index": "no"
+            },
+            "endTime": {
+                "type": "date",
+                "format": "yyyy-MM-dd HH:mm:ss",
+                "index": "no"
+            },
+            "createTime": {
+                "type": "date",
+                "format": "yyyy-MM-dd HH:mm:ss",
+                "index": "no"
+            },
+            "updateTime": {
+                "type": "date",
+                "format": "yyyy-MM-dd HH:mm:ss"
+            }
+        }
+        }
+    }
+}
