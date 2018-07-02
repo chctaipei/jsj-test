@@ -1,7 +1,7 @@
 <?php
 
 /**
- * 計算: '1- (1 - 2)*2'
+ * 計算數學運算式: '1- (1 - 2)*2'
  */
 
 class node
@@ -16,6 +16,42 @@ class tree
 {
     public $root;
     public $token;
+
+    function __construct($expression)
+    {
+        $pos1 = strpos($expression, '(', 0);
+        $pos2 = false;
+
+        if ($pos1 !== false) {
+            $len = strlen($expression);
+            $flag = 0;
+
+            for ($i = $pos1+1; $i< $len; $i++) {
+                if ($expression[$i] == '(') {
+                    $flag++;
+                } else if ($expression[$i] == ')') {
+                    if ($flag == 0) {
+                        $pos2 = $i;
+                        break;
+                    }
+                    $flag--;
+                }
+            }
+
+            if ($flag) {
+                throw new Exception("error");
+            }
+
+            $sub = substr($expression, $pos1 + 1, $pos2 - $pos1 - 1);
+            $t = new tree($sub);
+            $value = $t->calc();
+
+            $expression = substr($expression, 0, $pos1) . " $value " . substr($expression, $pos2 + 1);
+        }
+
+        $this->parse($expression);
+        $this->start();
+    }
 
     function parse($expression)
     {
@@ -69,28 +105,10 @@ class tree
                 $token[] = (int) $t;
                 continue;
             }
+
+            throw new Exception("bad token");
         }//end while
         $this->token = $token;
-    }
-
-    function __construct($expression)
-    {
-        $pos1 = strpos($expression, '(', 0);
-        $pos2 = strpos($expression, ')', 0);
-        if (($pos1 !== false && $pos2 == false) || ($pos1 == false && $pos2 !== false) || ($pos2 < $pos1)) {
-            throw new Exception("error");
-        }
-
-        if ($pos1 != false) {
-            $sub = substr($expression, $pos1 + 1, $pos2 - $pos1 - 1);
-            $t = new tree($sub);
-            $value = $t->calc();
-
-            $expression = substr($expression, 0, $pos1) . " $value " . substr($expression, $pos2 + 1);
-        }
-
-        $this->parse($expression);
-        $this->start();
     }
 
     function build($id, $node)
@@ -120,6 +138,8 @@ class tree
             $node2->left = $node->right;
             $node->right = &$node2;
             $node2->parent = &$node;
+        } else {
+            throw new Exception('error');
         }
 
         $id++;
@@ -136,7 +156,20 @@ class tree
         $this->len = count($token);
 
         $node = new node();
+        if (!is_numeric($token[0])) {
+            throw new Exception('error');
+        }
+
+        if ($this->len == 1) {
+            $this->root = $token[0];
+            return ;
+        }
+
         $node->left = $token[0];
+
+        if (is_numeric($token[1])) {
+            throw new Exception('error');
+        }
         $node->op = $token[1];
 
         $this->root = &$node;
@@ -168,12 +201,26 @@ class tree
     }
 }
 
-$expression = '1-2000* -(3- 2)*2';
-$t = new tree($expression);
-$x = $t->calc();
+function calc($expression) {
+    try {
+       $t = new tree($expression);
+       return $t->calc();
+    } catch (Exception $e) {
+        return null;
+    }
+}
 
-echo $expression . "\n";
-echo "answer = $x\n";
+// return 1
+var_dump(1 == calc('(1+1*2)/3'));
+
+// return -1
+var_dump(-1 ==  calc('(-1+1* -2)/3'));
+
+// return null
+var_dump(null == calc('-1+1* - -2)/3'));
+
+// return  3
+var_dump(3 == calc('( ((-1+2) * -3)/3) + 4'));
 
 ?>
 
