@@ -20,7 +20,7 @@ exports.checkElementAttr = function(document, element, attr, output)
     }
 
     if (notfound > 0) {
-        output("There are " + notfound + " <" + element +"> tag without "+ attr +" attribute");
+        output("There are " + notfound + " <" + element +"> tag without "+ attr +" attribute\n");
     }
 }
 
@@ -28,21 +28,21 @@ exports.checkElementCount = function(document, element, count, output)
 {
     var myNodeList = document.querySelectorAll(element);
     if (myNodeList.length > count) {
-        output("This HTML has more than " + count + " <" + element + "> tag");
+        output("This HTML has more than " + count + " <" + element + "> tag\n");
     }
 }
 
 exports.checkHead = function(document, meta, output)
 {
     if (document.head.getElementsByTagName("title").length == 0) {
-        output("This HTML without <title> tag");
+        output("This HTML without <title> tag\n");
     }
 
     meta.forEach(function(name) {
         var search = 'meta[name="' + name + '"]';
         var element = document.head.querySelector(search);
         if (element == null) {
-            output('This HTML without <meta name="' + name + '"> tag');
+            output('This HTML without <meta name="' + name + '"> tag' + "\n");
         }
     });
 }

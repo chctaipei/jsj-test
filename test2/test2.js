@@ -1,18 +1,34 @@
-var test = require("./test.js");
-var validate = require('./validate.js');
-var { JSDOM } = require("jsdom");
-
+var seo = require("./checkDefets.js");
 var fs = require('fs');
 var inputStream = fs.createReadStream('test.html');
+var outputStream = fs.createWriteStream('test.output', { encoding: 'utf8'});
+var rule = 
+[
+      {
+        'type': 'checkElementAttr',
+        'tag': 'img',
+        'attr': 'alt'
+      },
+      {
+        'type': 'checkElementAttr',
+        'tag': 'a',
+        'attr': 'ref'
+      },
+      {
+        'type': 'checkElementCount',
+        'tag': 'h1',
+        'count': 1
+      },
+      {
+        'type': 'checkElementCount',
+        'tag': 'strong',
+        'count': 2
+      },
+      {
+        'type': 'checkHead',
+        'meta': ['description', 'robots']
+      }
+];
 
-test.read(inputStream, function(data) {
-    var dom = new JSDOM(data, { includeNodeLocations: true });
-    var document = dom.window.document;
-
-    validate.checkElementAttr(document, 'img', 'alt', function(data) { console.log(data);} );
-    validate.checkElementAttr(document, 'a', 'rel', function(data) { console.log(data);} );
-    validate.checkElementCount(document, 'strong', 3, function(data) { console.log(data);} );
-    validate.checkElementCount(document, 'h1', 1, function(data) { console.log(data);} );
-    validate.checkHead(document, ['description', 'robots'], function(data) { console.log(data);} )
-
-  });
+seo.checkDefets(inputStream, outputStream, rule);
+seo.checkDefets('<a ref="inputStream">', outputStream, rule);
