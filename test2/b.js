@@ -1,0 +1,82 @@
+const { JSDOM } = require("jsdom");
+const dom = new JSDOM(
+  `
+  <head>
+  <xtitle>123</titlex>
+  <meta name="description">xxx</meta>
+  </head>
+
+   <h1>xxx</h1>
+   <h1>xxx</h1>
+<p>Hello
+    <img src="foo.jpg" alt=''>
+    <img src="foo.jpg">
+    <img src="foo.jpg">
+    <a href='aaa'>...</a>
+    <a href='aaa' rel='xxx'>...</a>
+  </p>
+    <strong>xxx</strong>
+    <strong>xxx</strong>
+    <strong>xxx</strong>
+    <strong>xxx</strong>
+    <strong>xxx</strong>
+  `,
+  { includeNodeLocations: true }
+);
+
+const document = dom.window.document;
+
+function hasAttr(attributes, attr)
+{
+    for (var j = 0; j < attributes.length; j++) {
+        if (attributes[j].name == attr) {
+             return true;
+
+        }
+    }
+    return false;
+}
+
+function checkElementAttr(document, element, attr)
+{
+    var myNodeList = document.querySelectorAll(element);
+    var notfound = 0;
+    for (var i = 0; i < myNodeList.length; i++) {
+        if (!hasAttr(myNodeList[i].attributes, 'alt')) {
+            notfound++;
+        }
+    }
+
+    if (notfound > 0) {
+        console.log("There are " + notfound + " <" + element +"> tag without "+ attr +" attribute");
+    }
+}
+
+function checkElementCount(document, element, count)
+{
+    var myNodeList = document.querySelectorAll(element);
+    if (myNodeList.length > count) {
+        console.log("This HTML has more than " + count + " <" + element + "> tag");
+    }
+}
+
+function checkHead(document, meta)
+{
+    if (document.head.getElementsByTagName("title").length == 0) {
+        console.log("This HTML without <title> tag");
+    }
+
+    meta.forEach(function(name) {
+        var search = 'meta[name="' + name + '"]';
+        var element = document.head.querySelector(search);
+        if (element == null) {
+            console.log('This HTML without <meta name="' + name + '"> tag');
+        }
+    });
+}
+
+checkElementAttr(document, 'img', 'alt');
+checkElementAttr(document, 'a', 'rel');
+checkElementCount(document, 'strong', 3);
+checkElementCount(document, 'h1', 1);
+checkHead(document, ['description', 'robots'])
