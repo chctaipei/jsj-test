@@ -3,13 +3,12 @@ function hasAttr(attributes, attr)
     for (var j = 0; j < attributes.length; j++) {
         if (attributes[j].name == attr) {
              return true;
-
         }
     }
     return false;
 }
 
-exports.checkElementAttr = function(document, element, attr, output)
+exports.checkElementAttr = function(document, element, attr)
 {
     var myNodeList = document.querySelectorAll(element);
     var notfound = 0;
@@ -19,30 +18,36 @@ exports.checkElementAttr = function(document, element, attr, output)
         }
     }
 
-    if (notfound > 0) {
-        output("There are " + notfound + " <" + element +"> tag without "+ attr +" attribute\n");
-    }
+    return notfound;
 }
 
-exports.checkElementCount = function(document, element, count, output)
+exports.checkElementCount = function(document, element, count)
 {
     var myNodeList = document.querySelectorAll(element);
     if (myNodeList.length > count) {
-        output("This HTML has more than " + count + " <" + element + "> tag\n");
+        return false;
     }
+    return true;
 }
 
-exports.checkHead = function(document, meta, output)
+exports.checkHeadTitle = function(document, meta)
 {
     if (document.head.getElementsByTagName("title").length == 0) {
-        output("This HTML without <title> tag\n");
+        return false;
     }
+    return true;
+}
 
+exports.checkHeadMeta = function(document, meta)
+{
+    var notFound = [];
     meta.forEach(function(name) {
         var search = 'meta[name="' + name + '"]';
         var element = document.head.querySelector(search);
         if (element == null) {
-            output('This HTML without <meta name="' + name + '"> tag' + "\n");
+            notFound.push(name);
+            // output('This HTML without <meta name="' + name + '"> tag' + "\n");
         }
     });
+    return notFound;
 }

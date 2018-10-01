@@ -12,7 +12,7 @@ var rule =
       {
         'type': 'checkElementAttr',
         'tag': 'a',
-        'attr': 'ref'
+        'attr': 'rel'
       },
       {
         'type': 'checkElementCount',
@@ -30,5 +30,6 @@ var rule =
       }
 ];
 
+seo.checkDefets(inputStream, '', rule[0]);
 seo.checkDefets(inputStream, outputStream, rule);
-seo.checkDefets('<a ref="inputStream">', outputStream, rule);
+seo.checkDefets('<a rel="ooo">', '', rule);
